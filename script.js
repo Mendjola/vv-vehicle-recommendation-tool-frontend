@@ -62,6 +62,8 @@ const questions = [
 let currentStep = 0;
 let chatMode = false;
 let awaitingLLM = false;
+let validationAttempts = 0;
+const MAX_VALIDATION_ATTEMPTS = 5;
 
 const userAnswers = {
   currentVehicle: "",
@@ -174,6 +176,11 @@ async function showRecommendationsChat() {
   try {
     /*const validatedData = await getValidatedInputToDisplay();
     console.log("Validated input:", validatedData);*/
+    const validatedData = await getValidatedInputToDisplay();
+    if (!validatedData) {
+      throw new Error("Validation returned null");
+    }
+
     await getVehicles();
 
     /* !!! TESTING -- remove later  */
@@ -190,14 +197,16 @@ async function showRecommendationsChat() {
     if (rankedVehicles && rankedVehicles.length > 0) {
       const vehicleList = rankedVehicles
         .map(
-          (vehicle, index) =>
-            `${index + 1}. ${vehicle.make} ${vehicle.model}`,
+          (vehicle, index) => `${index + 1}. ${vehicle.make} ${vehicle.model}`,
         )
         .join("\n");
 
       addMessage(
         "Assistant",
-        formattedVehicleListToDisplay(rankedVehicles, validatedInput["preferredYear"]),
+        formattedVehicleListToDisplay(
+          rankedVehicles,
+          validatedInput["preferredYear"],
+        ),
         //`Here are the recommended vehicles for you:\n\n${vehicleList}\n\nFeel free to ask me any questions about these vehicles!`,
         "bot-message",
       );
@@ -210,20 +219,60 @@ async function showRecommendationsChat() {
     }
 
     userInput.placeholder = "Ask a question about the recommendations...";
+    validationAttempts = 0;
   } catch (error) {
     console.error("Validation failed:", error);
-    addMessage(
-      "Assistant",
-      "I collected your preferences, but there was an issue generating recommendations.",
-      "bot-message",
-    );
+    validationAttempts++;
+
+    removeThinkingIndicator();
+
+    if (validationAttempts < MAX_VALIDATION_ATTEMPTS) {
+      addMessage(
+        "Assistant",
+        `I had trouble processing your preferences. Please try again.` ,
+        //(${MAX_VALIDATION_ATTEMPTS - validationAttempts} attempt${MAX_VALIDATION_ATTEMPTS - validationAttempts !== 1 ? "s" : ""} remaining)`,
+        "bot-message",
+      );
+
+      resetConversation();
+    } else {
+      addMessage(
+        "Assistant",
+        "I apologize, but I was unable to process your preferences after multiple attempts. Please refresh the page and try again.",
+        "bot-message",
+      );
+      sendButton.disabled = true;
+      userInput.disabled = true;
+    }
   } finally {
-      removeThinkingIndicator();
+    removeThinkingIndicator();
   }
 
   // userInput.disabled = true;
   // sendButton.disabled = true;
   // userInput.placeholder = "Conversation completed";
+}
+
+function resetConversation() {
+  currentStep = 0;
+  chatMode = false;
+
+  // Clear user answers
+  userAnswers.currentVehicle = "";
+  userAnswers.vehicleType = "";
+  userAnswers.yearPreference = "";
+  userAnswers.preferredMakeAndModel = "";
+
+  updateProgress();
+
+  // Re-ask first question
+  setTimeout(() => {
+    addMessage("Assistant", questions[0].question, "bot-message");
+    userInput.disabled = false;
+    sendButton.disabled = false;
+    userInput.placeholder = "Type your answer...";
+    userInput.focus();
+  }, 1000);
 }
 
 // Format answers
