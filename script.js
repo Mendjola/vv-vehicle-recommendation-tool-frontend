@@ -63,7 +63,7 @@ let currentStep = 0;
 let chatMode = false;
 let awaitingLLM = false;
 let validationAttempts = 0;
-const MAX_VALIDATION_ATTEMPTS = 3;
+const MAX_VALIDATION_ATTEMPTS = 5;
 
 const userAnswers = {
   currentVehicle: "",
@@ -229,7 +229,8 @@ async function showRecommendationsChat() {
     if (validationAttempts < MAX_VALIDATION_ATTEMPTS) {
       addMessage(
         "Assistant",
-        `I had trouble processing your preferences. Please try again. (${MAX_VALIDATION_ATTEMPTS - validationAttempts} attempt${MAX_VALIDATION_ATTEMPTS - validationAttempts !== 1 ? "s" : ""} remaining)`,
+        `I had trouble processing your preferences. Please try again.` ,
+        //(${MAX_VALIDATION_ATTEMPTS - validationAttempts} attempt${MAX_VALIDATION_ATTEMPTS - validationAttempts !== 1 ? "s" : ""} remaining)`,
         "bot-message",
       );
 
