@@ -1,10 +1,6 @@
+let validatedInput = {};
 let rankedVehicles = [];
 
-// Store selected make/year globally
-window.lastSelectedMake = "";
-window.lastSelectedYear = "";
-
-// Send vehicle preference data to backend
 async function sendDataForVehicles(make, year) {
   return $.ajax({
     type: "POST",
@@ -13,109 +9,58 @@ async function sendDataForVehicles(make, year) {
     dataType: "json",
     data: JSON.stringify({
       make: make,
-      year: year
+      year: year,
     }),
-    error: function (jqXHR, status, error) {
-      console.log("Error", jqXHR, status, error);
-    }
+    error: function (jqxHR, status, error) {
+      console.log("Error", jqxHR, status, error);
+    },
   });
 }
 
-// Display top 3 recommendations in the chat
-function displayRecommendationsInChat(recommendedVehicles) {
-  let message = "Here are 3 vehicles that match your preferences:<br><br>";
+// async function getVehicles(){
+//     validatedInput = await getValidatedInputToDisplay()
+//     let make;
+//     const year = validatedInput["preferredYear"];
 
-  const vehicles =
-    recommendedVehicles?.rankedVehicles ||
-    recommendedVehicles?.results ||
-    [];
+//     if (validatedInput["preferredMake"]){ //if preferred vehicle not null
+//         make = validatedInput["preferredMake"];
+//     }
+//     else{ // if preferred vehicle null
+//         make = validatedInput["currMake"];
+//     }
 
-  if (vehicles.length === 0) {
-    message += "No vehicle recommendations were found.";
-  } else {
-    vehicles.slice(0, 3).forEach((vehicle, index) => {
-      const model =
-        vehicle.model ||
-        vehicle.Model ||
-        vehicle.Model_Name ||
-        vehicle.modelName ||
-        vehicle.vehicle_model ||
-        "Unknown Model";
+//     //get vehicles
+//     const response = await sendDataForVehicles(make, year);
 
-      // 👇 Use stored make/year since backend doesn't provide them
-      const make = window.lastSelectedMake || "";
-      const year = window.lastSelectedYear || "";
+//     // store ranked vehicles in a global variable
+//     rankedVehicles = response?.rankedVehicles ?? [];
+//     console.log("Recommended Vehicles: ", rankedVehicles);
 
-      //message += `${index + 1}. ${year} ${make} ${model}<br>`;
+// }
 
-      message += `<div class="vehicle-line">${index + 1}. ${year} ${make} ${model}</div>`;
-
-    });
-  }
-
-  window.addMessage("Assistant", message, "bot-message");
-}
-
-window.renderRecommendationsInChat = displayRecommendationsInChat;
-
-// Handle final recommendation display and login prompt
-async function handleFinalRecommendations(recommendedVehicles) {
-  displayRecommendationsInChat(recommendedVehicles);
-
-  /*
-  const userInput = document.getElementById("userInput");
-  const sendButton = document.getElementById("sendButton");
-
-  if (userInput) {
-    userInput.value = "";
-    userInput.placeholder = "Please log in to continue...";
-    userInput.disabled = true;
-  }
-
-  if (sendButton) {
-    sendButton.disabled = true;
-  }
-
-
-  if (typeof window.showAuthPromptInChat === "function") {
-    await window.showAuthPromptInChat();
-  }
-
-  */
-
-  if (typeof window.saveConversationState === "function") {
-    window.saveConversationState();
-  }
-}
-
-// Get vehicles from validated user input
+//send question to system
 async function getVehicles() {
-  const validatedInput = await getValidatedInputToDisplay();
+  validatedInput = await getValidatedInputToDisplay();
 
-  let make;
   const year = validatedInput["preferredYear"];
-
-  if (validatedInput["preferredMake"]) {
-    make = validatedInput["preferredMake"];
-  } else {
-    make = validatedInput["currMake"];
-  }
-
-  window.lastSelectedMake = make;
-  window.lastSelectedYear = year;
+  const make = validatedInput["preferredMake"] ?? validatedInput["currMake"];
 
   const response = await sendDataForVehicles(make, year);
 
-  rankedVehicles = response?.rankedVehicles || response?.results || [];
+//   console.log("RAW RESPONSE:", response);
 
-  console.log("Recommended Vehicles:", rankedVehicles);
+  const parsed = response?.body
+    ? typeof response.body === "string"
+      ? JSON.parse(response.body)
+      : response.body
+    : response;
 
-  await handleFinalRecommendations(response);
+  rankedVehicles = parsed?.rankedVehicles ?? [];
 
-  return rankedVehicles;
+//   console.log("PARSED RESPONSE:", parsed);
+//   console.log("RECOMMENDED VEHICLES:", rankedVehicles);
 }
 
-// Send question to LLM/system
 async function converse(question, vehicleList) {
   return $.ajax({
     type: "POST",
@@ -124,67 +69,42 @@ async function converse(question, vehicleList) {
     dataType: "json",
     data: JSON.stringify({
       question: question,
-      rankedVehicles: vehicleList
+      rankedVehicles: vehicleList,
     }),
-    error: function (jqXHR, status, error) {
-      console.log("Error", jqXHR, status, error);
-    }
+    error: function (jqxHR, status, error) {
+      console.log("Error", jqxHR, status, error);
+    },
   });
 }
 
-
-// Get LLM response and display it in chat
-
-/*
 async function getLLMResponse(question) {
   const response = await converse(question, rankedVehicles);
-  const llmAnswer = response?.answer ?? "Sorry, I could not get a response.";
 
-  console.log("Question:", question);
-  console.log("LLM Response:", llmAnswer);
+  console.log("RAW LLM RESPONSE:", response);
 
-  if (typeof window.addMessage === "function") {
-    window.addMessage("Assistant", llmAnswer, "bot-message");
-  }
+  const parsed = response?.body
+    ? typeof response.body === "string"
+      ? JSON.parse(response.body)
+      : response.body
+    : response;
+
+  const llmAnswer = parsed?.answer ?? null;
+
+  console.log("QUESTION:", question);
+  console.log("LLM ANSWER:", llmAnswer);
 
   return llmAnswer;
-} */
+}
 
-  // Get LLM response and display it in chat
-  async function getLLMResponse(question) {
-    const response = await converse(question, rankedVehicles);
-    let llmAnswer = response?.answer ?? "Sorry, I could not get a response.";
-  
-    console.log("Question:", question);
-    console.log("LLM Response:", llmAnswer);
-  
-    llmAnswer = llmAnswer
-      .replace(/\*\*/g, "")
-      .replace(/\n\s*\n/g, "\n")
-      .replace(/Based on/g, "Based on")
-      .replace(/•\s*/g, "<br><br>• ")
-      .replace(/\s-\sScore:/g, "<br>- Score:")
-      .replace(/\s-\sRecall count:/g, "<br>- Recall count:")
-      .replace(/\s-\sSeverity weight:/g, "<br>- Severity weight:")
-      .replace(/\s-\sComplaint count:/g, "<br>- Complaint count:")
-      .replace(/\sReason:/g, "<br><br>Reason:")
-      .replace(/Note that/g, "<br><br>Note that")
-      .replace(/\n/g, "<br>");
-            
-   /* llmAnswer = `
-      <div class="llm-response">
-        <strong>Why these vehicles match:</strong>
-        ${llmAnswer}
-      </div>
-    `;
-   */
+function formattedVehicleListToDisplay(vehicles, vehicleYear) {
+  let message = "Here are 3 vehicles that match your preferences:<br><br>";
 
-    if (typeof window.addMessage === "function") {
-      window.addMessage("Assistant", llmAnswer, "bot-message");
-    }
-  
-    return llmAnswer;
-  }
+  vehicles.slice(0, 3).forEach((vehicle, index) => {
+    const model = vehicle?.model ?? null;
+    const make = vehicle?.make ?? null;
+    message += `<div class = "vehicle-line">${index + 1}. ${vehicleYear} ${make} ${model}</div>`;
+  });
 
-
-
+  message += "<br>Feel free to ask me questions regarding these vehicles!";
+  return message;
+}
